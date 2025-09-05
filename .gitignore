@@ -43,3 +43,4 @@ fastlane/report.xml
 
 *.koplugin.zip
 
+apps/readest-app/.env
