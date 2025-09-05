@@ -492,12 +492,16 @@ const handleFetchAndAnnotate = async () => {
     timeout: 3000,
   });
   const bookData = getBookData(bookKey)!;
-  const title = bookData.book.title;
+  const title = bookData.book?.title ?? 'Unknown Title';
   //const author = bookData.book.author;
   //console.log(`当前书籍: ${title}, 作者: ${author}`);
-  const { bookDoc } = getBookData(bookKey)!;
-  const { location } = getProgress(bookKey)!;
-  const tocItem = findTocItemBS(bookDoc.toc ?? [], location);
+  //const { bookDoc } = getBookData(bookKey)!;
+  //const { location } = getProgress(bookKey)!;
+  //const tocItem = findTocItemBS(bookDoc.toc ?? [], location);
+  const { bookDoc } = getBookData(bookKey) ?? {};
+  const { location } = getProgress(bookKey) ?? {};
+  const tocItem = findTocItemBS(bookDoc?.toc ?? [], location ?? 0);
+
   const chapterTitle = tocItem?.label || '未知章节';
   //console.log(`当前章节: ${chapterTitle}`);
   //console.log(`location: ${location}`);
@@ -513,8 +517,8 @@ const handleFetchAndAnnotate = async () => {
     //const externalContent = await response.text(); // 或者 response.json() 如果返回的是 JSON
 //const token = "Oracl3123456"; // 从登录获取，或从状态管理里取
 
-const token = process.env.NEXT_PUBLIC_API_TOKEN;
-const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+const token = process.env['NEXT_PUBLIC_API_TOKEN']!;
+const apiUrl = process.env['NEXT_PUBLIC_API_URL']!;
 
 const response = await fetch(apiUrl, {
   method: "POST",
