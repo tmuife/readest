@@ -500,7 +500,7 @@ const handleFetchAndAnnotate = async () => {
   //const tocItem = findTocItemBS(bookDoc.toc ?? [], location);
   const { bookDoc } = getBookData(bookKey) ?? {};
   const { location } = getProgress(bookKey) ?? {};
-  const tocItem = findTocItemBS(bookDoc?.toc ?? [], location ?? 0);
+  const tocItem = findTocItemBS(bookDoc?.toc ?? [], location ?? '');
 
   const chapterTitle = tocItem?.label || '未知章节';
   //console.log(`当前章节: ${chapterTitle}`);
