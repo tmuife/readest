@@ -9,7 +9,9 @@ if (isDev) {
   initOpenNextCloudflareForDev();
 }
 
-const exportOutput = appPlatform !== 'web' && !isDev;
+//const exportOutput = appPlatform !== 'web' && !isDev;
+const exportOutput =
+  process.env.EXPORT_OUTPUT === 'true' || (appPlatform !== 'web' && !isDev);
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {

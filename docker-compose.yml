@@ -1,0 +1,32 @@
+version: "3.9"
+
+services:
+
+  readest:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    container_name: walter-readest
+    restart: always
+    ports:
+      - "8099:3000"   # 前端 serve 监听端口
+    networks:
+      - walter-readest
+
+  proxyapp:
+    build:
+      context: ./
+      dockerfile: Dockerfile.nginx
+    container_name: walter-readest-proxy
+    restart: always
+    depends_on:
+      - readest
+    ports:
+      - "8080:80"   # 前端 serve 监听端口
+    networks:
+      - walter-readest
+
+networks:
+  walter-readest:
+    driver: bridge
+
