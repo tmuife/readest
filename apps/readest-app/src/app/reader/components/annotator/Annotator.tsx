@@ -306,7 +306,7 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
     }
   };
 
-  const handleHighlight = (update = false) => {
+  const handleHighlight = async (update = false) => {
     if (!selection || !selection.text) return;
     setHighlightOptionsVisible(true);
     const { booknotes: annotations = [] } = config;
@@ -338,6 +338,51 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
         views.forEach((view) => view?.addAnnotation(annotation));
       } else {
         annotations[existingIndex]!.deletedAt = Date.now();
+
+        /**************/
+        const annotationToDelete = annotations[existingIndex]!;
+        const textContent = annotationToDelete.text;
+        try {
+            console.log('准备删除高亮, 内容:', textContent);
+            console.log('完整的标注对象:', annotationToDelete);
+            // 调用您的外部 REST API
+            const token = process.env['NEXT_PUBLIC_API_TOKEN']!;
+            const apiUrl = process.env['NEXT_PUBLIC_API_URL']!;
+            const bookData = getBookData(bookKey)!;
+            const title = bookData.book?.title ?? 'Unknown Title';
+            const response = await fetch(apiUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`, // 关键：传 Bearer Token
+              },
+              body: JSON.stringify({
+                opper: "del",
+                title: title, 
+                chaptertitle: "",
+                highlightedtext: textContent,
+                location: "",
+              }),
+            });
+
+            if (!response.ok) {
+              throw new Error(`API 请求失败, 状态码: ${response.status}`);
+            }
+            const result = await response.json(); // FastAPI 返回 dict，用 json() 解析
+            console.log(result);
+            console.log('外部 API 调用成功');
+            // API 调用成功后，再执行原来的删除逻辑
+            annotationToDelete.deletedAt = Date.now();
+            setShowAnnotPopup(false);
+
+        } catch (error) {
+            console.error('调用外部 API 时出错:', error);
+            // 这里可以添加用户提示，例如弹出一个 toast 通知
+            // eventDispatcher.dispatch('toast', { type: 'error', message: '删除失败' });
+            // 决定是否在 API 失败后依然在本地删除，或者直接 return 中断操作
+            return;
+        }
+        /**************/
         setShowAnnotPopup(false);
       }
     } else {
@@ -527,6 +572,7 @@ const response = await fetch(apiUrl, {
     "Authorization": `Bearer ${token}`, // 关键：传 Bearer Token
   },
   body: JSON.stringify({
+    opper: "add",
     title: title, 
     chaptertitle: chapterTitle,
     highlightedtext: highlightedText,
