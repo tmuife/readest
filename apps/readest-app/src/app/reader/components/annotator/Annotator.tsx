@@ -32,7 +32,7 @@ import AnnotationPopup from './AnnotationPopup';
 import WiktionaryPopup from './WiktionaryPopup';
 import WikipediaPopup from './WikipediaPopup';
 import TranslatorPopup from './TranslatorPopup';
-import { FiExternalLink } from 'react-icons/fi';
+import { FiExternalLink, FiDownload } from 'react-icons/fi';
 
 const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
   const _ = useTranslation();
@@ -360,6 +360,7 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
                 opper: "del",
                 title: title, 
                 chaptertitle: "",
+                cfi: "",
                 highlightedtext: textContent,
                 location: "",
               }),
@@ -525,6 +526,77 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
 // =================================================================
 // 2. 在这里定义你的新函数, 放在 handleHighlight 等函数旁边
 // =================================================================
+const handleFetchAllAnnotate = async () => {
+  // 显示一个临时的提示, 告诉用户正在处理
+  eventDispatcher.dispatch('toast', {
+    type: 'info',
+    message: '正在从外部获取笔记...',
+    timeout: 3000,
+  });
+  const bookData = getBookData(bookKey)!;
+  const title = bookData.book?.title ?? 'Unknown Title';
+  try {
+    const token = process.env['NEXT_PUBLIC_API_TOKEN']!;
+    const apiUrl = process.env['NEXT_PUBLIC_API_URL']!;
+    const response = await fetch(apiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`, // 关键：传 Bearer Token
+      },
+      body: JSON.stringify({
+        opper: "load",
+        title: title, 
+        chaptertitle: "",
+        cfi: "",
+        highlightedtext: "",
+        location: "",
+      }),
+    });
+    if (!response.ok) {
+      throw new Error(`API 请求失败, 状态码: ${response.status}`);
+    }
+    const result = await response.json(); // FastAPI 返回 dict，用 json() 解析
+    //console.log(result);
+    const externalContent = result.data; // 这里用一个示例内容代替实际的 API 调用
+    console.log("获取到的外部笔记:", externalContent);
+    // --- 创建并保存标注和笔记 ---
+    const { booknotes: annotations = [] } = config;
+    externalContent.forEach((item: any) => {
+      console.log(item);
+      const annotation: BookNote = {
+        id: uniqueId(),
+        type: 'annotation',
+        cfi: item.cfi,
+        style: 'highlight',
+        color: 'yellow',
+        text: item.highlightedtext,
+        //note: `【高亮原文】:\n${item.highlightedtext}\n\n【外部笔记】:\n${item.content}`,
+        note: `【${item.highlightedtext}】:\n${item.content}`,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      // 将新笔记添加到数组并保存
+      annotations.push(annotation);
+      const updatedConfig = updateBooknotes(bookKey, annotations);
+      if (updatedConfig) {
+        saveConfig(envConfig, bookKey, updatedConfig, settings);
+      }
+      const views = getViewsById(bookKey.split('-')[0]!);
+      views.forEach((view) => view?.addAnnotation(annotation));
+    });
+    setNotebookVisible(true);
+    handleDismissPopupAndSelection();
+
+  } catch (error) {
+    console.error("获取外部笔记失败:", error);
+    eventDispatcher.dispatch('toast', {
+      type: 'error',
+      message: '获取外部笔记失败, 请检查控制台.',
+      timeout: 5000,
+    });
+  }
+};
 const handleFetchAndAnnotate = async () => {
   if (!selection || !selection.text) return;
 
@@ -546,52 +618,36 @@ const handleFetchAndAnnotate = async () => {
   const { bookDoc } = getBookData(bookKey) ?? {};
   const { location } = getProgress(bookKey) ?? {};
   const tocItem = findTocItemBS(bookDoc?.toc ?? [], location ?? '');
-
   const chapterTitle = tocItem?.label || '未知章节';
-  //console.log(`当前章节: ${chapterTitle}`);
-  //console.log(`location: ${location}`);
-  //console.log(`highlightedText: ${highlightedText}`);
- 
 
   try {
-    // --- 调用你的外部 API ---
-    //const response = await fetch(`https://api.example.com/your-endpoint?text=${encodeURIComponent(highlightedText)}`);
-    //if (!response.ok) {
-    //  throw new Error(`API 请求失败, 状态码: ${response.status}`);
-    //}
-    //const externalContent = await response.text(); // 或者 response.json() 如果返回的是 JSON
-//const token = "Oracl3123456"; // 从登录获取，或从状态管理里取
-
-const token = process.env['NEXT_PUBLIC_API_TOKEN']!;
-const apiUrl = process.env['NEXT_PUBLIC_API_URL']!;
-
-const response = await fetch(apiUrl, {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    "Authorization": `Bearer ${token}`, // 关键：传 Bearer Token
-  },
-  body: JSON.stringify({
-    opper: "add",
-    title: title, 
-    chaptertitle: chapterTitle,
-    highlightedtext: highlightedText,
-    location: location,
-  }),
-});
-
-if (!response.ok) {
-  throw new Error(`API 请求失败, 状态码: ${response.status}`);
-}
-const result = await response.json(); // FastAPI 返回 dict，用 json() 解析
-console.log(result);
-    
-    const externalContent = result.data; // 这里用一个示例内容代替实际的 API 调用
-
-    // --- 创建并保存标注和笔记 ---
-    const { booknotes: annotations = [] } = config;
+    const token = process.env['NEXT_PUBLIC_API_TOKEN']!;
+    const apiUrl = process.env['NEXT_PUBLIC_API_URL']!;
     const cfi = view?.getCFI(selection.index, selection.range);
     if (!cfi) return;
+    const response = await fetch(apiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`, // 关键：传 Bearer Token
+      },
+      body: JSON.stringify({
+        opper: "add",
+        title: title, 
+        chaptertitle: chapterTitle,
+        highlightedtext: highlightedText,
+        cfi: cfi,
+        location: location,
+      }),
+    });
+    if (!response.ok) {
+      throw new Error(`API 请求失败, 状态码: ${response.status}`);
+    }
+    const result = await response.json(); // FastAPI 返回 dict，用 json() 解析
+    console.log(result);
+    const externalContent = result.data; // 这里用一个示例内容代替实际的 API 调用
+    // --- 创建并保存标注和笔记 ---
+    const { booknotes: annotations = [] } = config;
 
     // 创建一条新的标注, 和 handleHighlight 中类似
     const annotation: BookNote = {
@@ -602,7 +658,8 @@ console.log(result);
       color: 'yellow',   // 同上
       text: highlightedText,
       // 将高亮内容和API返回内容组合, 存入 note 字段
-      note: `【高亮原文】:\n${highlightedText}\n\n【外部笔记】:\n${externalContent}`,
+      //note: `【高亮原文】:\n${highlightedText}\n\n【外部笔记】:\n${externalContent}`,
+      note: `【${highlightedText}】:\n${externalContent}`,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
@@ -621,8 +678,8 @@ console.log(result);
     // --- 打开 Notebook 并显示新笔记 ---
     setNotebookVisible(true);
     // 创建一个临时的 selection 对象传给 notebook
-    const selectionForNotebook = { ...selection, note: annotation.note, annotated: true };
-    setNotebookNewAnnotation(selectionForNotebook);
+    //const selectionForNotebook = { ...selection, note: annotation.note, annotated: true };
+    //setNotebookNewAnnotation(selectionForNotebook);
 
     // 成功后关闭弹窗
     handleDismissPopupAndSelection();
@@ -647,6 +704,7 @@ console.log(result);
     },
     { tooltipText: _('Annotate'), Icon: BsPencilSquare, onClick: handleAnnotate },
     { tooltipText: '获取外部笔记', Icon: FiExternalLink, onClick: handleFetchAndAnnotate },
+    { tooltipText: 'LoadAnnotations', Icon: FiDownload, onClick: handleFetchAllAnnotate },
     { tooltipText: _('Search'), Icon: FiSearch, onClick: handleSearch },
     { tooltipText: _('Dictionary'), Icon: TbHexagonLetterD, onClick: handleDictionary },
     { tooltipText: _('Wikipedia'), Icon: FaWikipediaW, onClick: handleWikipedia },
