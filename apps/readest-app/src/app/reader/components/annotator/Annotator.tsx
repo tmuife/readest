@@ -562,7 +562,13 @@ const handleFetchAllAnnotate = async () => {
     console.log("获取到的外部笔记:", externalContent);
     // --- 创建并保存标注和笔记 ---
     const { booknotes: annotations = [] } = config;
-    externalContent.forEach((item: any) => {
+    interface ExternalContentItem {
+      cfi: string;
+      highlightedtext: string;
+      content: string;
+      [key: string]: unknown; // 允许额外字段
+    }
+    externalContent.forEach((item: ExternalContentItem) => {
       console.log(item);
       const annotation: BookNote = {
         id: uniqueId(),
