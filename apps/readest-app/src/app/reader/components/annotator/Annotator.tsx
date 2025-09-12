@@ -568,29 +568,65 @@ const handleFetchAllAnnotate = async () => {
       content: string;
       [key: string]: unknown; // 允许额外字段
     }
-    externalContent.forEach((item: ExternalContentItem) => {
-      console.log(item);
-      const annotation: BookNote = {
-        id: uniqueId(),
-        type: 'annotation',
-        cfi: item.cfi,
-        style: 'highlight',
-        color: 'yellow',
-        text: item.highlightedtext,
-        //note: `【高亮原文】:\n${item.highlightedtext}\n\n【外部笔记】:\n${item.content}`,
-        note: `【${item.highlightedtext}】:\n${item.content}`,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      };
-      // 将新笔记添加到数组并保存
-      annotations.push(annotation);
-      const updatedConfig = updateBooknotes(bookKey, annotations);
+
+    // 创建一个包含现有笔记 CFI 的 Set, 用于快速查找, 忽略已删除的
+    const existingCfiSet = new Set(
+      annotations.filter((note) => !note.deletedAt).map((note) => note.cfi),
+    );
+
+    const newAnnotations = (externalContent as ExternalContentItem[])
+      .filter((item) => {
+        // 如果 CFI 已存在, 则过滤掉
+        const isDuplicate = existingCfiSet.has(item.cfi);
+        if (isDuplicate) {
+          console.log(`笔记重复, CFI: ${item.cfi}, 将被跳过.`);
+        }
+        return !isDuplicate;
+      })
+      .map((item): BookNote => {
+        // 为新笔记创建标注对象
+        return {
+          id: uniqueId(),
+          type: 'annotation',
+          cfi: item.cfi,
+          style: 'highlight',
+          color: 'yellow',
+          text: item.highlightedtext,
+          note: `【${item.highlightedtext}】:\n${item.content}`,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+      });
+
+    // 如果有新笔记, 则批量更新状态和视图
+    if (newAnnotations.length > 0) {
+      console.log(`新增 ${newAnnotations.length} 条笔记.`);
+      // 将新笔记批量添加到总列表中
+      const updatedAnnotations = [...annotations, ...newAnnotations];
+      const updatedConfig = updateBooknotes(bookKey, updatedAnnotations);
       if (updatedConfig) {
         saveConfig(envConfig, bookKey, updatedConfig, settings);
       }
+
+      // 在视图中批量添加高亮
       const views = getViewsById(bookKey.split('-')[0]!);
-      views.forEach((view) => view?.addAnnotation(annotation));
-    });
+      newAnnotations.forEach((annotation) => {
+        views.forEach((view) => view?.addAnnotation(annotation));
+      });
+
+      eventDispatcher.dispatch('toast', {
+        type: 'success',
+        message: `成功导入 ${newAnnotations.length} 条笔记.`,
+        timeout: 3000,
+      });
+    } else {
+      console.log('没有新的笔记需要添加.');
+      eventDispatcher.dispatch('toast', {
+        type: 'info',
+        message: '没有新的笔记可供导入.',
+        timeout: 2000,
+      });
+    }
     setNotebookVisible(true);
     handleDismissPopupAndSelection();
 
