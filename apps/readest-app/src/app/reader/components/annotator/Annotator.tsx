@@ -566,6 +566,8 @@ const handleFetchAllAnnotate = async () => {
       cfi: string;
       highlightedtext: string;
       content: string;
+      created_at?: string | number; 
+      updated_at?: string | number; 
       [key: string]: unknown; // 允许额外字段
     }
 
@@ -585,6 +587,8 @@ const handleFetchAllAnnotate = async () => {
       })
       .map((item): BookNote => {
         // 为新笔记创建标注对象
+        const created_at = item.created_at ? new Date(item.created_at).getTime() : Date.now(); 
+        const updated_at = item.updated_at ? new Date(item.updated_at).getTime() : Date.now(); 
         return {
           id: uniqueId(),
           type: 'annotation',
@@ -593,8 +597,8 @@ const handleFetchAllAnnotate = async () => {
           color: 'yellow',
           text: item.highlightedtext,
           note: `【${item.highlightedtext}】:\n${item.content}`,
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
+          createdAt: created_at,
+          updatedAt: updated_at,
         };
       });
 
